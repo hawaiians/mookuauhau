@@ -1,5 +1,4 @@
 import Head from "next/head";
-import Image from "next/image";
 import neo4j, { Session } from "neo4j-driver";
 import React, { useState } from "react";
 import Input from "../components/Input";
