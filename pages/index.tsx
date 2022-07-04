@@ -3,42 +3,33 @@ import neo4j, { Session } from "neo4j-driver";
 import React, { useState } from "react";
 import Input from "../components/Input";
 import Button, { ButtonSize } from "../components/Button";
+import {
+  ApolloProvider,
+  ApolloClient,
+  InMemoryCache,
+  useQuery,
+  gql,
+} from "@apollo/client";
+
+const FILMS_QUERY = gql`
+  query MyQuery {
+    kanaka(limit: 10) {
+      name
+    }
+  }
+`;
 
 export default function HomePage() {
   const [currentSession, setSession] = useState<Session>();
   const [currentResult, setResult] = useState<String>();
+  const { data, loading, error } = useQuery(FILMS_QUERY);
 
-  function handleConnection() {
-    let url = (document.getElementById("url") as HTMLInputElement).value;
-    let username = (document.getElementById("username") as HTMLInputElement)
-      .value;
-    let password = (document.getElementById("password") as HTMLInputElement)
-      .value;
-    try {
-      let driver = neo4j.driver(url, neo4j.auth.basic(username, password));
-      setSession(driver.session({ defaultAccessMode: neo4j.session.READ }));
-      Array.from(document.querySelectorAll("input")).forEach(
-        (input) => (input.value = "")
-      );
-    } catch {
-      alert(
-        "Unable to connect to the database, please check your credentials and try again"
-      );
-    }
-  }
+  if (loading) return "Loading...";
+  if (error) return <pre>{error.message}</pre>;
 
   function handleQuery() {
     let query = (document.getElementById("query") as HTMLInputElement).value;
-    currentSession
-      .run(query)
-      .then((result) => {
-        console.log(result);
-        setResult(JSON.stringify(result));
-      })
-      .catch((error) => {
-        console.log(error);
-      })
-      .then(() => currentSession.close());
+    setResult(JSON.stringify(data));
   }
 
   return (
@@ -51,47 +42,22 @@ export default function HomePage() {
         />
         <link rel="icon" href="/hammah.png" />
       </Head>
-
       <div style={{ position: "fixed" }} className="middle-centered-container">
-        {currentSession ? (
-          <div className="query-wrapper">
-            <p>Enter a Cypher query to retrieve data</p>
-            <div style={{ marginBottom: "2rem", width: "75%" }}>
-              <Input name="query" placeholder="query" />
-            </div>
-            {currentResult ? <p className="results">{currentResult}</p> : null}
-            <Button
-              size={ButtonSize.Small}
-              customWidth="15rem"
-              onClick={handleQuery}
-              type="submit"
-            >
-              Submit
-            </Button>
+        <div className="query-wrapper">
+          <p>Enter a GraphQL query</p>
+          <div style={{ marginBottom: "2rem", width: "75%" }}>
+            <Input name="query" placeholder="query" />
           </div>
-        ) : (
-          <div className="sign-in-wrapper">
-            <p>Enter the neo4j credentials to enter</p>
-            <div style={{ marginBottom: "2rem", width: "75%" }}>
-              <Input name="url" placeholder="url" />
-            </div>
-            <div style={{ marginBottom: "2rem", width: "75%" }}>
-              <Input name="username" placeholder="username" />
-            </div>
-            <div style={{ marginBottom: "2rem", width: "75%" }}>
-              <Input name="password" placeholder="password" />
-            </div>
-            <Button
-              size={ButtonSize.Small}
-              customWidth="15rem"
-              onClick={handleConnection}
-              type="submit"
-            >
-              Submit
-            </Button>
-          </div>
-        )}
-
+          {currentResult ? <p className="results">{currentResult}</p> : null}
+          <Button
+            size={ButtonSize.Small}
+            customWidth="15rem"
+            onClick={handleQuery}
+            type="submit"
+          >
+            Submit
+          </Button>
+        </div>
         <style jsx>{`
           p {
             font-size: 2rem;
@@ -113,16 +79,6 @@ export default function HomePage() {
             justify-content: center;
             align-items: center;
           }
-          .sign-in-wrapper {
-            width: 35rem;
-            height: 25rem;
-            font-size: 1rem;
-            display: flex;
-            flex-flow: column nowrap;
-            justify-content: center;
-            align-items: center;
-            box-sizing: border-box;
-          }
           .query-wrapper {
             width: 35rem;
             max-height: 40rem;
@@ -136,10 +92,6 @@ export default function HomePage() {
           @media screen and (max-width: 40rem) {
             p {
               font-size: 1rem;
-            }
-            .sign-in-wrapper {
-              width: 25rem;
-              height: 18.75rem;
             }
           }
         `}</style>
