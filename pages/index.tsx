@@ -1,101 +1,149 @@
-import Head from "next/head";
-import neo4j, { Session } from "neo4j-driver";
+import dynamic from "next/dynamic";
+import { useQuery, useLazyQuery, gql } from "@apollo/client";
 import React, { useState } from "react";
-import Input from "../components/Input";
+import DataFormer from "../lib/data-former";
 import Button, { ButtonSize } from "../components/Button";
-import {
-  ApolloProvider,
-  ApolloClient,
-  InMemoryCache,
-  useQuery,
-  gql,
-} from "@apollo/client";
 
-const FILMS_QUERY = gql`
-  query MyQuery {
-    kanaka(limit: 10) {
+const ForceGraph = dynamic(() => import("../components/ForceGraph"), {
+  ssr: false,
+});
+
+const get_kanaka = gql`
+  query kanakaByXrefidRelations($xref_id: String!) {
+    kanaka(where: {xref_id: {_eq: $xref_id}}) {
+      kanaka_id
       name
+      sex
+      residence
+      birth_date
+      birth_place
+      xref_id
+      mookuauhau_id
+      namakua {
+        ohana {
+          ohana_id
+          xref_id
+          kane_id
+          wahine_id
+          kane {
+            kanaka_id
+            xref_id
+            name
+          }
+          wahine {
+            kanaka_id
+            xref_id
+            name
+          }
+        }
+      }
+      makuakane {
+        ohana_id
+        xref_id
+        kane_id
+        wahine {
+          kanaka_id
+          name
+          xref_id
+        }
+        nakamalii {
+          kamalii_id
+          ohana {
+            ohana_id
+            xref_id
+          }
+          kanaka {
+            kanaka_id
+            name
+            xref_id
+            sex
+          }
+        }
+      }
+      makuahine {
+        ohana_id
+        xref_id
+        wahine_id
+        kane {
+          kanaka_id
+          name
+          xref_id
+        }
+        nakamalii {
+          kamalii_id
+          kanaka {
+            kanaka_id
+            name
+            xref_id
+            sex
+          }
+        }
+      }
     }
   }
 `;
 
-export default function HomePage() {
-  const [currentSession, setSession] = useState<Session>();
-  const [currentResult, setResult] = useState<String>();
-  const { data, loading, error } = useQuery(FILMS_QUERY);
+export default function Home() {
+  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
+  const formatter = new DataFormer();
+  let subGraph: {[k: string]: any} = {};
 
-  if (loading) return "Loading...";
-  if (error) return <pre>{error.message}</pre>;
+  const [loadKanakaDescendants] = useLazyQuery(get_kanaka, {
+      onCompleted: (data) => {
+        console.log(data)
+        subGraph = formatter.formatDescendantData(data);
+        setGraphData({
+          nodes: formatter.getUniqNodes([...graphData.nodes, ...subGraph.nodes]),
+          links: [...graphData.links, ...subGraph.links ]
+        });
+      },
+    }
+  );
 
-  function handleQuery() {
-    let query = (document.getElementById("query") as HTMLInputElement).value;
-    setResult(JSON.stringify(data));
-  }
+  const [loadKanakaAscendants] = useLazyQuery(get_kanaka, {
+      onCompleted: (data) => {
+        subGraph = formatter.formatAscendantData(data);
+        setGraphData({
+          nodes: formatter.getUniqNodes([...graphData.nodes, ...subGraph.nodes]),
+          links: [...graphData.links, ...subGraph.links ]
+        });
+      },
+    }
+  );
 
   return (
-    <>
-      <Head>
-        <title>Hackathon 2022</title>
-        <meta
-          name="description"
-          content="Hawaiians in Technology and Purple Mai'a Hackathon 2022"
-        />
-        <link rel="icon" href="/hammah.png" />
-      </Head>
-      <div style={{ position: "fixed" }} className="middle-centered-container">
-        <div className="query-wrapper">
-          <p>Enter a GraphQL query</p>
-          <div style={{ marginBottom: "2rem", width: "75%" }}>
-            <Input name="query" placeholder="query" />
-          </div>
-          {currentResult ? <p className="results">{currentResult}</p> : null}
-          <Button
-            size={ButtonSize.Small}
-            customWidth="15rem"
-            onClick={handleQuery}
-            type="submit"
-          >
-            Submit
-          </Button>
-        </div>
-        <style jsx>{`
-          p {
-            font-size: 2rem;
-            margin-bottom: 3rem;
-            text-align: center;
+    <div>
+      <Button
+        size={ButtonSize.Small}
+        customWidth="15rem"
+        onClick={() => loadKanakaDescendants({variables: {xref_id: "@I1749@"}})}
+        type="submit"
+      >Kamehameha I</Button>
+      <Button
+        size={ButtonSize.Small}
+        customWidth="15rem"
+        onClick={() => loadKanakaDescendants({variables: {xref_id: "@I489@"}})}
+        type="submit"
+      >Kekaulike Kalani-kui-hono-i-ka-moku (King of Maui)</Button>
+      <ForceGraph
+        nodeAutoColorBy={"__typename"}
+        nodeLabel={"name"}
+        graphData={graphData}
+        minZoom={3}
+        maxZoom={6}
+        dagMode={"td"}
+        dagLevelDistance={40}
+        onDagError={() => {return "DAG Error"}}
+        onNodeClick={(node: any, event) => {
+          console.log(node)
+          if (node.__typename === 'kanaka') {
+            loadKanakaDescendants({ variables: {xref_id: node.id}});
           }
-          .results {
-            font-size: 1rem;
-            max-width: 100%;
-            height: 30rem;
-            overflow: scroll;
+          if (node.index === 0) {
+            loadKanakaAscendants({ variables: {xref_id: node.id}});
           }
-          .middle-centered-container {
-            top: 0;
-            left: 0;
-            height: 100%;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-          }
-          .query-wrapper {
-            width: 35rem;
-            max-height: 40rem;
-            font-size: 1rem;
-            display: flex;
-            flex-flow: column nowrap;
-            justify-content: center;
-            align-items: center;
-            box-sizing: border-box;
-          }
-          @media screen and (max-width: 40rem) {
-            p {
-              font-size: 1rem;
-            }
-          }
-        `}</style>
-      </div>
-    </>
+        }}
+      />
+    </div>
   );
 }
