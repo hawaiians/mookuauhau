@@ -1,8 +1,10 @@
 import dynamic from "next/dynamic";
 import { useQuery, useLazyQuery, gql } from "@apollo/client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import DataFormer from "../lib/data-former";
 import Button, { ButtonSize } from "../components/Button";
+import DropDown from "@/components/DropDown";
+import Spacer from "@/components/Spacer";
 
 const ForceGraph = dynamic(() => import("../components/ForceGraph"), {
   ssr: false,
@@ -84,13 +86,13 @@ const get_kanaka = gql`
 `;
 
 export default function Home() {
-  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
+  const [graphData, setGraphData] = useState<any>({ nodes: [], links: [] });
+  const [algo, setAlgo] = useState<any>('null');
   const formatter = new DataFormer();
   let subGraph: {[k: string]: any} = {};
 
   const [loadKanakaDescendants] = useLazyQuery(get_kanaka, {
       onCompleted: (data) => {
-        console.log(data)
         subGraph = formatter.formatDescendantData(data);
         setGraphData({
           nodes: formatter.getUniqNodes([...graphData.nodes, ...subGraph.nodes]),
@@ -111,27 +113,38 @@ export default function Home() {
     }
   );
 
+  const handleDropDown = (o) => setAlgo(o);
+
   return (
     <div>
-      <Button
-        size={ButtonSize.Small}
-        customWidth="15rem"
-        onClick={() => loadKanakaDescendants({variables: {xref_id: "@I1749@"}})}
-        type="submit"
-      >Kamehameha I</Button>
-      <Button
-        size={ButtonSize.Small}
-        customWidth="15rem"
-        onClick={() => loadKanakaDescendants({variables: {xref_id: "@I489@"}})}
-        type="submit"
-      >Kekaulike Kalani-kui-hono-i-ka-moku (King of Maui)</Button>
+      <div className="button-rack">
+        <Button
+          size={ButtonSize.Small}
+          customWidth="15rem"
+          onClick={() => loadKanakaDescendants({variables: {xref_id: "@I1749@"}})}
+          type="submit"
+        >Kamehameha I</Button>
+        <Spacer size={50} axis={'horizontal'} />
+        <Button
+          size={ButtonSize.Small}
+          customWidth="15rem"
+          onClick={() => loadKanakaDescendants({variables: {xref_id: "@I489@"}})}
+          type="submit"
+        >Kekaulike Kalani-kui-hono-i-ka-moku (King of Maui)</Button>
+        <Spacer size={50} axis={'horizontal'} />
+        <DropDown 
+          name="Algo" 
+          onClick={(e) => handleDropDown(e)}
+          width="15rem"
+        />
+      </div>
       <ForceGraph
         nodeAutoColorBy={"__typename"}
         nodeLabel={"name"}
         graphData={graphData}
         minZoom={3}
         maxZoom={6}
-        dagMode={"td"}
+        dagMode={algo}
         dagLevelDistance={40}
         onDagError={() => {return "DAG Error"}}
         onNodeClick={(node: any, event) => {
@@ -144,6 +157,13 @@ export default function Home() {
           }
         }}
       />
+      <style jsx>{`
+        .button-rack {
+            display: flex;
+            padding: 15px;
+            justify-content: center; 
+        `}
+      </style>
     </div>
   );
 }

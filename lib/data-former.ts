@@ -50,6 +50,7 @@ class DataFormer {
       
     formatDescendantData = (data) => {
         if (!data.kanaka) return ReferenceError;
+        // this.nodes = [], this.links = [];
 
         //kanaka
         this.pushNode(data.kanaka[0].name.replaceAll("/",""), data.kanaka[0].xref_id, "#CB6A13", data.kanaka[0].__typename)
@@ -106,6 +107,8 @@ class DataFormer {
     formatAscendantData = (data) => {
         if (!data.kanaka) return ReferenceError;
 
+        this.nodes = [], this.links = [];
+
         //namakua
         if(data.kanaka[0].namakua) {
             if(data.kanaka[0].namakua[0].ohana) {
@@ -124,7 +127,7 @@ class DataFormer {
                 }
             }
         }
-    
+
         return { nodes: this.uniqNodesLocal(), links: this.links };
     }
 }
