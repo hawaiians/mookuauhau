@@ -85,9 +85,34 @@ const get_kanaka = gql`
   }
 `;
 
+const get_kanaka_ascendants = gql`
+query kanakaByXrefidRelations($xref_id: String!) {
+  kanaka(where: {xref_id: {_eq: $xref_id}}) {
+    namakua {
+      ohana {
+        ohana_id
+        xref_id
+        kane_id
+        wahine_id
+        kane {
+          kanaka_id
+          xref_id
+          name
+        }
+        wahine {
+          kanaka_id
+          xref_id
+          name
+        }
+      }
+    }
+  }
+}
+`;
+
 export default function Home() {
   const [graphData, setGraphData] = useState<any>({ nodes: [], links: [] });
-  const [algo, setAlgo] = useState<any>('null');
+  const [algo, setAlgo] = useState<any>("td");
   const formatter = new DataFormer();
   let subGraph: {[k: string]: any} = {};
 
@@ -96,18 +121,18 @@ export default function Home() {
         subGraph = formatter.formatDescendantData(data);
         setGraphData({
           nodes: formatter.getUniqNodes([...graphData.nodes, ...subGraph.nodes]),
-          links: [...graphData.links, ...subGraph.links ]
+          links: [...graphData.links, ...subGraph.links]
         });
       },
     }
   );
 
-  const [loadKanakaAscendants] = useLazyQuery(get_kanaka, {
+  const [loadKanakaAscendants] = useLazyQuery(get_kanaka_ascendants, { //only works well with reac-force-graph radial visualization algorithms
       onCompleted: (data) => {
         subGraph = formatter.formatAscendantData(data);
         setGraphData({
-          nodes: formatter.getUniqNodes([...graphData.nodes, ...subGraph.nodes]),
-          links: [...graphData.links, ...subGraph.links ]
+          nodes: [subGraph.nodes],
+          links: [subGraph.links]
         });
       },
     }
@@ -124,16 +149,23 @@ export default function Home() {
           onClick={() => loadKanakaDescendants({variables: {xref_id: "@I1749@"}})}
           type="submit"
         >Kamehameha I</Button>
-        <Spacer size={50} axis={'horizontal'} />
+        <Spacer size={50} axis={"horizontal"} />
         <Button
           size={ButtonSize.Small}
           customWidth="15rem"
           onClick={() => loadKanakaDescendants({variables: {xref_id: "@I489@"}})}
           type="submit"
         >Kekaulike Kalani-kui-hono-i-ka-moku (King of Maui)</Button>
-        <Spacer size={50} axis={'horizontal'} />
+        <Spacer size={50} axis={"horizontal"} />
+        <Button
+          size={ButtonSize.Small}
+          customWidth="15rem"
+          onClick={() => loadKanakaDescendants({variables: {xref_id: "@I21@"}})}
+          type="submit"
+        >Wakea</Button>
+        <Spacer size={50} axis={"horizontal"} />
         <DropDown 
-          name="Algo" 
+          name="Visualization Algo"
           onClick={(e) => handleDropDown(e)}
           width="15rem"
         />
@@ -149,7 +181,7 @@ export default function Home() {
         onDagError={() => {return "DAG Error"}}
         onNodeClick={(node: any, event) => {
           console.log(node)
-          if (node.__typename === 'kanaka') {
+          if (node.__typename === "kanaka") {
             loadKanakaDescendants({ variables: {xref_id: node.id}});
           }
           if (node.index === 0) {
